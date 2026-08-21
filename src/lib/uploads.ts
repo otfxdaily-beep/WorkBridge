@@ -27,6 +27,12 @@ export const PHOTO_RULE: FileRule = {
   mimeTypes: ["image/jpeg", "image/png", "image/webp"],
 };
 
+export const VERIFICATION_DOCUMENT_RULE: FileRule = {
+  maxSizeBytes: 5 * 1024 * 1024,
+  extensions: [".pdf", ".jpg", ".jpeg", ".png"],
+  mimeTypes: ["application/pdf", "image/jpeg", "image/png"],
+};
+
 export function validateFile(file: File, rule: FileRule): string | null {
   if (file.size === 0) return "Choose a file to upload.";
   if (file.size > rule.maxSizeBytes) {
