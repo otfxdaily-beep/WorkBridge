@@ -38,6 +38,14 @@ export function formatRelativeDate(date: Date | string) {
   return new Intl.DateTimeFormat("en-NG", { day: "numeric", month: "short", year: "numeric" }).format(d);
 }
 
+export function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 export function titleCase(value: string) {
   return value
     .toLowerCase()

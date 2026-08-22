@@ -3,6 +3,7 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 
 const navLinks = [
   { href: "/employer/dashboard", label: "Dashboard" },
+  { href: "/employer/jobs", label: "Jobs" },
   { href: "/employer/company", label: "Company" },
   { href: "/employer/settings", label: "Settings" },
 ];
