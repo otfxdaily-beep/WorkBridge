@@ -23,7 +23,9 @@ export function CompanyCard({ company }: { company: CompanyCardData }) {
               <MapPin className="size-3.5" />
               {company.city}, {company.state}
             </span>
-            <p className="text-xs text-slate-400">{company.openJobs} open roles</p>
+            <p className="text-xs text-slate-400">
+              {company.openJobs} open role{company.openJobs === 1 ? "" : "s"}
+            </p>
           </div>
           {company.isVerified && <VerifiedBadge />}
         </div>
