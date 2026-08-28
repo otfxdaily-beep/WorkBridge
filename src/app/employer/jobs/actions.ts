@@ -4,30 +4,16 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth/session";
 import { findOrCreateLocation } from "@/lib/location";
 import { slugify } from "@/lib/utils";
 import { jobPostSchema, jobSkillSchema } from "@/lib/validation/job";
+import { requireCompany, requireOwnedJob } from "@/lib/employer-guards";
 
 export type ActionState = {
   error?: string;
   success?: string;
   fieldErrors?: Record<string, string[]>;
 } | null;
-
-async function requireCompany() {
-  const user = await requireRole("EMPLOYER");
-  const employerProfile = await prisma.employerProfile.findUniqueOrThrow({ where: { userId: user.id } });
-  if (!employerProfile.companyId) redirect("/employer/company");
-  return { user, companyId: employerProfile.companyId };
-}
-
-async function requireOwnedJob(jobId: string) {
-  const { companyId } = await requireCompany();
-  const job = await prisma.job.findUniqueOrThrow({ where: { id: jobId } });
-  if (job.companyId !== companyId) redirect("/employer/jobs");
-  return job;
-}
 
 async function uniqueSlug(base: string) {
   let slug = base;

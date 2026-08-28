@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { requireRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { formatSalaryRange, formatRelativeDate, titleCase } from "@/lib/utils";
-import { statusTone } from "../page";
+import { applicationStatusTone } from "@/lib/applications";
 import { withdrawApplicationAction } from "../actions";
 
 export const metadata: Metadata = { title: "Application Status" };
@@ -48,7 +48,7 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
               {application.job.company.name} &middot; {application.job.location.city}, {application.job.location.state}
             </p>
           </div>
-          <Badge tone={statusTone[application.status]} className="text-sm">
+          <Badge tone={applicationStatusTone[application.status]} className="text-sm">
             {titleCase(application.status)}
           </Badge>
         </div>

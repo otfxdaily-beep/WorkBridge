@@ -16,11 +16,16 @@ export default async function EmployerDashboardPage() {
   });
 
   const company = profile.company;
-  const jobCounts = company
-    ? await prisma.job.groupBy({ by: ["status"], where: { companyId: company.id }, _count: true })
-    : [];
+  const [jobCounts, applicationCounts] = company
+    ? await Promise.all([
+        prisma.job.groupBy({ by: ["status"], where: { companyId: company.id }, _count: true }),
+        prisma.application.groupBy({ by: ["status"], where: { job: { companyId: company.id } }, _count: true }),
+      ])
+    : [[], []];
   const countFor = (status: string) => jobCounts.find((c) => c.status === status)?._count ?? 0;
+  const applicantCountFor = (status: string) => applicationCounts.find((c) => c.status === status)?._count ?? 0;
   const activeJobs = countFor("PUBLISHED") + countFor("PENDING_REVIEW");
+  const totalApplicants = applicationCounts.reduce((sum, c) => sum + c._count, 0);
 
   return (
     <Container className="py-10">
@@ -88,16 +93,33 @@ export default async function EmployerDashboardPage() {
             </Card>
           </div>
 
-          <div className="mt-6">
+          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Card>
+              <p className="text-2xl font-semibold text-slate-900">{totalApplicants}</p>
+              <p className="text-sm text-slate-500">Total applicants</p>
+            </Card>
+            <Card>
+              <p className="text-2xl font-semibold text-slate-900">{applicantCountFor("SHORTLISTED")}</p>
+              <p className="text-sm text-slate-500">Shortlisted</p>
+            </Card>
+            <Card>
+              <p className="text-2xl font-semibold text-slate-900">{applicantCountFor("INTERVIEW")}</p>
+              <p className="text-sm text-slate-500">Interviews</p>
+            </Card>
+            <Card>
+              <p className="text-2xl font-semibold text-slate-900">{applicantCountFor("HIRED")}</p>
+              <p className="text-sm text-slate-500">Hires</p>
+            </Card>
+          </div>
+
+          <div className="mt-6 flex gap-3">
             <ButtonLink href="/employer/jobs/new">Post a job</ButtonLink>
+            <ButtonLink href="/employer/jobs" variant="secondary">
+              View applicants
+            </ButtonLink>
           </div>
         </>
       )}
-
-      <p className="mt-6 max-w-lg text-slate-600">
-        Applicant management will appear here once the Applicant Management
-        stage is built.
-      </p>
     </Container>
   );
 }

@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { calculateProfileCompletion } from "@/lib/profile-completion";
 import { formatRelativeDate, titleCase } from "@/lib/utils";
-import { statusTone } from "./applications/page";
+import { applicationStatusTone } from "@/lib/applications";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -69,7 +69,7 @@ export default async function JobSeekerDashboardPage() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-slate-900">{app.job.title}</span>
-                    <Badge tone={statusTone[app.status]}>{titleCase(app.status)}</Badge>
+                    <Badge tone={applicationStatusTone[app.status]}>{titleCase(app.status)}</Badge>
                   </div>
                   <p className="text-sm text-slate-500">{app.job.company.name}</p>
                 </div>

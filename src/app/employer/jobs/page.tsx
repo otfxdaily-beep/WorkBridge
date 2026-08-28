@@ -29,7 +29,7 @@ export default async function EmployerJobsPage() {
   const jobs = employerProfile.companyId
     ? await prisma.job.findMany({
         where: { companyId: employerProfile.companyId },
-        include: { location: true },
+        include: { location: true, _count: { select: { applications: true } } },
         orderBy: { createdAt: "desc" },
       })
     : [];
@@ -73,6 +73,9 @@ export default async function EmployerJobsPage() {
                 <p className="mt-0.5 text-xs text-slate-400">Created {formatRelativeDate(job.createdAt)}</p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                <ButtonLink href={`/employer/jobs/${job.id}/applicants`} size="sm">
+                  {job._count.applications} Applicant{job._count.applications === 1 ? "" : "s"}
+                </ButtonLink>
                 <ButtonLink href={detailHref} variant="secondary" size="sm">
                   View
                 </ButtonLink>

@@ -6,20 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { requireRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { formatRelativeDate, titleCase } from "@/lib/utils";
-import type { ApplicationStatus } from "@/generated/prisma/client";
+import { applicationStatusTone } from "@/lib/applications";
 
 export const metadata: Metadata = { title: "My Applications" };
-
-export const statusTone: Record<ApplicationStatus, "neutral" | "brand" | "warning" | "success" | "danger"> = {
-  APPLIED: "brand",
-  VIEWED: "brand",
-  SHORTLISTED: "warning",
-  INTERVIEW: "warning",
-  OFFER: "success",
-  HIRED: "success",
-  REJECTED: "danger",
-  WITHDRAWN: "neutral",
-};
 
 export default async function ApplicationsPage() {
   const user = await requireRole("JOB_SEEKER");
@@ -52,7 +41,7 @@ export default async function ApplicationsPage() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-slate-900">{app.job.title}</span>
-                  <Badge tone={statusTone[app.status]}>{titleCase(app.status)}</Badge>
+                  <Badge tone={applicationStatusTone[app.status]}>{titleCase(app.status)}</Badge>
                 </div>
                 <p className="mt-1 text-sm text-slate-500">
                   {app.job.company.name} &middot; {app.job.location.city}, {app.job.location.state}
