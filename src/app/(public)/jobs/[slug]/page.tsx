@@ -11,6 +11,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { formatSalaryRange, formatRelativeDate, titleCase } from "@/lib/utils";
 import { SaveJobButton } from "./save-job-button";
 import { ApplyButton, CvRequiredNote } from "./apply-button";
+import { startConversationFromApplicationAction } from "@/lib/messaging-actions";
 
 async function getJob(slug: string) {
   return prisma.job.findFirst({
@@ -126,10 +127,19 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
             isOpen={isOpen}
             hasCv={hasCv}
           />
-          <Button variant="secondary" className="w-full sm:w-auto" disabled title="Messaging opens in a later build stage">
-            <MessageCircle className="size-4" />
-            Message Employer
-          </Button>
+          {existingApplicationId ? (
+            <form action={startConversationFromApplicationAction.bind(null, existingApplicationId)}>
+              <Button type="submit" variant="secondary" className="w-full sm:w-auto">
+                <MessageCircle className="size-4" />
+                Message Employer
+              </Button>
+            </form>
+          ) : (
+            <Button variant="secondary" className="w-full sm:w-auto" disabled title="Apply first to message the employer">
+              <MessageCircle className="size-4" />
+              Message Employer
+            </Button>
+          )}
           <SaveJobButton jobId={job.id} slug={job.slug} isSaved={isSaved} />
           <Button variant="ghost" className="w-full sm:w-auto" disabled title="Reporting opens in a later build stage">
             <Flag className="size-4" />

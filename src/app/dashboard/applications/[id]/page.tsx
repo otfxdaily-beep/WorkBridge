@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, XCircle, MinusCircle } from "lucide-react";
+import { CheckCircle2, XCircle, MinusCircle, MessageCircle } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { requireRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { formatSalaryRange, formatRelativeDate, titleCase } from "@/lib/utils";
 import { applicationStatusTone } from "@/lib/applications";
+import { startConversationFromApplicationAction } from "@/lib/messaging-actions";
 import { withdrawApplicationAction } from "../actions";
 
 export const metadata: Metadata = { title: "Application Status" };
@@ -56,6 +57,13 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
         <p className="mt-3 text-sm text-slate-500">
           {formatSalaryRange(application.job.salaryMin, application.job.salaryMax, application.job.salaryFrequency)}
         </p>
+
+        <form action={startConversationFromApplicationAction.bind(null, application.id)} className="mt-4">
+          <Button type="submit" variant="secondary" size="sm">
+            <MessageCircle className="size-4" />
+            Message Employer
+          </Button>
+        </form>
 
         <div className="mt-6 border-t border-slate-100 pt-6">
           <h2 className="font-semibold text-slate-900">Status timeline</h2>

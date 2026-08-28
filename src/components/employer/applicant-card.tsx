@@ -5,6 +5,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { formatRelativeDate, titleCase } from "@/lib/utils";
 import { applicationStatusTone, nextStatusAction, canReject } from "@/lib/applications";
 import { updateApplicationStatusAction } from "@/app/employer/jobs/[id]/applicants/actions";
+import { startConversationFromApplicationAction } from "@/lib/messaging-actions";
 import type { ApplicationStatus } from "@/generated/prisma/client";
 
 export type ApplicantCardData = {
@@ -89,10 +90,12 @@ export function ApplicantCard({ jobId, applicant }: { jobId: string; applicant: 
             </Button>
           </form>
         )}
-        <Button variant="ghost" size="sm" disabled title="Messaging opens in a later build stage">
-          <MessageCircle className="size-4" />
-          Message
-        </Button>
+        <form action={startConversationFromApplicationAction.bind(null, applicant.applicationId)}>
+          <Button type="submit" variant="ghost" size="sm">
+            <MessageCircle className="size-4" />
+            Message
+          </Button>
+        </form>
       </div>
     </Card>
   );

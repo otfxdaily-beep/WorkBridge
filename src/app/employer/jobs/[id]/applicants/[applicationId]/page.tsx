@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOwnedJob } from "@/lib/employer-guards";
 import { formatRelativeDate, titleCase } from "@/lib/utils";
 import { applicationStatusTone, nextStatusAction, canReject } from "@/lib/applications";
+import { startConversationFromApplicationAction } from "@/lib/messaging-actions";
 import { updateApplicationStatusAction } from "../actions";
 
 export const metadata: Metadata = { title: "Candidate Profile" };
@@ -136,10 +137,12 @@ export default async function ApplicantDetailPage({
               </Button>
             </form>
           )}
-          <Button variant="ghost" size="sm" disabled title="Messaging opens in a later build stage">
-            <MessageCircle className="size-4" />
-            Message
-          </Button>
+          <form action={startConversationFromApplicationAction.bind(null, application.id)}>
+            <Button type="submit" variant="ghost" size="sm">
+              <MessageCircle className="size-4" />
+              Message
+            </Button>
+          </form>
         </div>
       </Card>
 

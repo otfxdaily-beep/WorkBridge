@@ -209,6 +209,9 @@ model User {
 
   sentMessages Message[] @relation("MessageSender")
 
+  conversationsAsJobSeeker Conversation[] @relation("ConversationAsJobSeeker")
+  conversationsAsEmployer  Conversation[] @relation("ConversationAsEmployer")
+
   reportsFiled  Report[] @relation("ReportsFiled")
   reportsTarget Report[] @relation("ReportsAgainstUser")
 
@@ -615,7 +618,9 @@ model Conversation {
   application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
 
   jobSeekerUserId String
+  jobSeekerUser   User   @relation("ConversationAsJobSeeker", fields: [jobSeekerUserId], references: [id], onDelete: Cascade)
   employerUserId  String
+  employerUser    User   @relation("ConversationAsEmployer", fields: [employerUserId], references: [id], onDelete: Cascade)
 
   blockedByUserId String?
   blockedAt       DateTime?
