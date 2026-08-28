@@ -14,7 +14,12 @@ import { PreferencesForm } from "./preferences-form";
 
 export const metadata: Metadata = { title: "My Profile" };
 
-export default async function JobSeekerProfilePage() {
+export default async function JobSeekerProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ needsCv?: string }>;
+}) {
+  const { needsCv } = await searchParams;
   const user = await requireRole("JOB_SEEKER");
 
   const profile = await prisma.jobSeekerProfile.findUniqueOrThrow({
@@ -38,6 +43,12 @@ export default async function JobSeekerProfilePage() {
           Keep this up to date &mdash; employers see it when you apply.
         </p>
       </div>
+
+      {needsCv && !profile.cvUrl && (
+        <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Upload a CV below before applying to jobs.
+        </p>
+      )}
 
       <CompletionMeter percent={completion} />
 

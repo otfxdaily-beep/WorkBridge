@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Building2, MapPin, Star, Flag, MessageCircle, Send } from "lucide-react";
+import { Building2, MapPin, Star, Flag, MessageCircle } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Card } from "@/components/ui/card";
 import { Badge, VerifiedBadge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { getCompanyRating } from "@/lib/jobs";
 import { getCurrentUser } from "@/lib/auth/session";
 import { formatSalaryRange, formatRelativeDate, titleCase } from "@/lib/utils";
 import { SaveJobButton } from "./save-job-button";
+import { ApplyButton, CvRequiredNote } from "./apply-button";
 
 async function getJob(slug: string) {
   return prisma.job.findFirst({
@@ -41,16 +42,26 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
   const [rating, user] = await Promise.all([getCompanyRating(job.companyId), getCurrentUser()]);
 
   let isSaved = false;
+  let existingApplicationId: string | null = null;
+  let hasCv = true;
   if (user?.role === "JOB_SEEKER") {
     const profile = await prisma.jobSeekerProfile.findUnique({ where: { userId: user.id } });
     if (profile) {
-      isSaved = Boolean(
-        await prisma.savedJob.findUnique({
+      hasCv = Boolean(profile.cvUrl);
+      const [saved, application] = await Promise.all([
+        prisma.savedJob.findUnique({
           where: { jobSeekerProfileId_jobId: { jobSeekerProfileId: profile.id, jobId: job.id } },
-        })
-      );
+        }),
+        prisma.application.findUnique({
+          where: { jobId_jobSeekerProfileId: { jobId: job.id, jobSeekerProfileId: profile.id } },
+        }),
+      ]);
+      isSaved = Boolean(saved);
+      existingApplicationId = application?.id ?? null;
     }
   }
+
+  const isOpen = job.status === "PUBLISHED" && (!job.deadline || job.deadline >= new Date());
 
   const isVerified = job.company.verificationStatus === "VERIFIED";
 
@@ -106,10 +117,15 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
         </p>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Button className="w-full sm:w-auto" disabled title="Applications open in the next build stage">
-            <Send className="size-4" />
-            Apply Now
-          </Button>
+          <ApplyButton
+            jobId={job.id}
+            slug={job.slug}
+            isLoggedIn={Boolean(user)}
+            isJobSeeker={user?.role === "JOB_SEEKER"}
+            existingApplicationId={existingApplicationId}
+            isOpen={isOpen}
+            hasCv={hasCv}
+          />
           <Button variant="secondary" className="w-full sm:w-auto" disabled title="Messaging opens in a later build stage">
             <MessageCircle className="size-4" />
             Message Employer
@@ -120,6 +136,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
             Report Job
           </Button>
         </div>
+        {user?.role === "JOB_SEEKER" && !hasCv && !existingApplicationId && <CvRequiredNote />}
 
         <div className="mt-8 space-y-5 border-t border-slate-100 pt-6">
           <div>

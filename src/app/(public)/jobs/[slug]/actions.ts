@@ -23,3 +23,32 @@ export async function toggleSaveJobAction(jobId: string, slug: string) {
 
   revalidatePath(`/jobs/${slug}`);
 }
+
+export async function applyToJobAction(jobId: string, slug: string) {
+  const user = await getCurrentUser();
+  if (!user) redirect(`/login?next=/jobs/${slug}`);
+  if (user.role !== "JOB_SEEKER") return;
+
+  const profile = await prisma.jobSeekerProfile.findUniqueOrThrow({ where: { userId: user.id } });
+  if (!profile.cvUrl) redirect(`/dashboard/profile?needsCv=1`);
+
+  const job = await prisma.job.findUnique({ where: { id: jobId } });
+  if (!job || job.status !== "PUBLISHED") redirect(`/jobs/${slug}`);
+  if (job.deadline && job.deadline < new Date()) redirect(`/jobs/${slug}`);
+
+  const existing = await prisma.application.findUnique({
+    where: { jobId_jobSeekerProfileId: { jobId, jobSeekerProfileId: profile.id } },
+  });
+  if (existing) redirect(`/dashboard/applications/${existing.id}`);
+
+  const application = await prisma.application.create({
+    data: {
+      jobId,
+      jobSeekerProfileId: profile.id,
+      status: "APPLIED",
+      statusEvents: { create: { status: "APPLIED", note: "Application submitted." } },
+    },
+  });
+
+  redirect(`/dashboard/applications/${application.id}`);
+}
