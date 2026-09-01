@@ -12,6 +12,7 @@ import { formatSalaryRange, formatRelativeDate, titleCase } from "@/lib/utils";
 import { applicationStatusTone } from "@/lib/applications";
 import { startConversationFromApplicationAction } from "@/lib/messaging-actions";
 import { withdrawApplicationAction } from "../actions";
+import { JobSeekerInterviewCard } from "@/components/interviews/jobseeker-interview-card";
 
 export const metadata: Metadata = { title: "Application Status" };
 
@@ -27,6 +28,7 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
     include: {
       job: { include: { company: true, location: true } },
       statusEvents: { orderBy: { createdAt: "asc" } },
+      interviews: { orderBy: { scheduledAt: "desc" } },
     },
   });
 
@@ -64,6 +66,28 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
             Message Employer
           </Button>
         </form>
+
+        {application.interviews.length > 0 && (
+          <div className="mt-6 border-t border-slate-100 pt-6">
+            <h2 className="font-semibold text-slate-900">Interviews</h2>
+            <div className="mt-3 space-y-3">
+              {application.interviews.map((interview) => (
+                <JobSeekerInterviewCard
+                  key={interview.id}
+                  interview={{
+                    id: interview.id,
+                    type: interview.type,
+                    scheduledAt: interview.scheduledAt.toISOString(),
+                    locationInfo: interview.locationInfo,
+                    notes: interview.notes,
+                    status: interview.status,
+                    candidateResponseNote: interview.candidateResponseNote,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 border-t border-slate-100 pt-6">
           <h2 className="font-semibold text-slate-900">Status timeline</h2>

@@ -11,7 +11,9 @@ import { requireOwnedJob } from "@/lib/employer-guards";
 import { formatRelativeDate, titleCase } from "@/lib/utils";
 import { applicationStatusTone, nextStatusAction, canReject } from "@/lib/applications";
 import { startConversationFromApplicationAction } from "@/lib/messaging-actions";
-import { updateApplicationStatusAction } from "../actions";
+import { updateApplicationStatusAction, scheduleInterviewAction } from "../actions";
+import { InterviewForm } from "@/components/interviews/interview-form";
+import { EmployerInterviewCard } from "@/components/interviews/employer-interview-card";
 
 export const metadata: Metadata = { title: "Candidate Profile" };
 
@@ -40,6 +42,7 @@ export default async function ApplicantDetailPage({
         },
       },
       statusEvents: { orderBy: { createdAt: "asc" } },
+      interviews: { orderBy: { scheduledAt: "desc" } },
     },
   });
 
@@ -58,6 +61,8 @@ export default async function ApplicantDetailPage({
   const profile = application.jobSeekerProfile;
   const next = nextStatusAction(application.status);
   const rejectable = canReject(application.status);
+  const canScheduleInterview = !["REJECTED", "WITHDRAWN", "HIRED"].includes(application.status);
+  const scheduleAction = scheduleInterviewAction.bind(null, jobId, application.id);
 
   return (
     <Container className="max-w-3xl py-10">
@@ -197,6 +202,35 @@ export default async function ApplicantDetailPage({
           </ul>
         </Card>
       )}
+
+      <Card className="mt-4">
+        <h2 className="font-semibold text-slate-900">Interviews</h2>
+        {application.interviews.length > 0 && (
+          <div className="mt-3 space-y-3">
+            {application.interviews.map((interview) => (
+              <EmployerInterviewCard
+                key={interview.id}
+                jobId={jobId}
+                interview={{
+                  id: interview.id,
+                  type: interview.type,
+                  scheduledAt: interview.scheduledAt.toISOString(),
+                  locationInfo: interview.locationInfo,
+                  notes: interview.notes,
+                  status: interview.status,
+                  candidateResponseNote: interview.candidateResponseNote,
+                }}
+              />
+            ))}
+          </div>
+        )}
+        {canScheduleInterview && (
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <p className="mb-2 text-sm font-medium text-slate-700">Schedule an interview</p>
+            <InterviewForm action={scheduleAction} submitLabel="Schedule interview" />
+          </div>
+        )}
+      </Card>
 
       <Card className="mt-4">
         <h2 className="font-semibold text-slate-900">Application timeline</h2>
