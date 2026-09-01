@@ -4,27 +4,55 @@ import { Container } from "@/components/ui/container";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
+import { JobCard } from "@/components/jobs/job-card";
 import { requireRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { calculateProfileCompletion } from "@/lib/profile-completion";
 import { formatRelativeDate, titleCase } from "@/lib/utils";
 import { applicationStatusTone } from "@/lib/applications";
+import { calculateMatch, buildCandidateMatchInput, buildJobMatchInput } from "@/lib/matching";
+import { toJobCardData } from "@/lib/jobs";
 
 export const metadata: Metadata = { title: "Dashboard" };
+
+const RECOMMENDATION_POOL_CAP = 100;
+const RECOMMENDATION_COUNT = 3;
 
 export default async function JobSeekerDashboardPage() {
   const user = await requireRole("JOB_SEEKER");
   const profile = await prisma.jobSeekerProfile.findUniqueOrThrow({
     where: { userId: user.id },
-    include: { skills: true, experiences: true, educations: true, preference: true },
+    include: {
+      skills: { include: { skill: true } },
+      experiences: true,
+      educations: true,
+      preference: { include: { location: true } },
+      location: true,
+    },
   });
 
-  const recentApplications = await prisma.application.findMany({
-    where: { jobSeekerProfileId: profile.id },
-    include: { job: { include: { company: true } } },
-    orderBy: { appliedAt: "desc" },
-    take: 5,
+  const [recentApplications, appliedJobIds] = await Promise.all([
+    prisma.application.findMany({
+      where: { jobSeekerProfileId: profile.id },
+      include: { job: { include: { company: true } } },
+      orderBy: { appliedAt: "desc" },
+      take: 5,
+    }),
+    prisma.application.findMany({ where: { jobSeekerProfileId: profile.id }, select: { jobId: true } }),
+  ]);
+
+  const candidatePool = await prisma.job.findMany({
+    where: { status: "PUBLISHED", id: { notIn: appliedJobIds.map((a) => a.jobId) } },
+    include: { company: true, location: true, skills: { include: { skill: true } } },
+    orderBy: { publishedAt: "desc" },
+    take: RECOMMENDATION_POOL_CAP,
   });
+
+  const candidateInput = buildCandidateMatchInput(profile);
+  const recommendedJobs = candidatePool
+    .map((job) => ({ job, matchScore: calculateMatch(candidateInput, buildJobMatchInput(job)).score }))
+    .sort((a, b) => b.matchScore - a.matchScore)
+    .slice(0, RECOMMENDATION_COUNT);
 
   const completion = calculateProfileCompletion(profile);
   const hour = new Date().getHours();
@@ -50,7 +78,23 @@ export default async function JobSeekerDashboardPage() {
         </div>
       )}
 
-      <div className="mt-6 flex items-center justify-between">
+      {recommendedJobs.length > 0 && (
+        <>
+          <div className="mt-8 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-900">Recommended for you</h2>
+            <ButtonLink href="/jobs" size="sm" variant="secondary">
+              Browse all jobs
+            </ButtonLink>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {recommendedJobs.map(({ job, matchScore }) => (
+              <JobCard key={job.id} job={toJobCardData(job, matchScore)} />
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="mt-8 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900">Recent applications</h2>
         <ButtonLink href="/jobs" size="sm" variant="secondary">
           Browse jobs

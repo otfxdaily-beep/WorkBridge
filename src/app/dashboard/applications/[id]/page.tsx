@@ -51,14 +51,20 @@ export default async function ApplicationDetailPage({ params }: { params: Promis
               {application.job.company.name} &middot; {application.job.location.city}, {application.job.location.state}
             </p>
           </div>
-          <Badge tone={applicationStatusTone[application.status]} className="text-sm">
-            {titleCase(application.status)}
-          </Badge>
+          <div className="flex flex-col items-end gap-1.5">
+            <Badge tone={applicationStatusTone[application.status]} className="text-sm">
+              {titleCase(application.status)}
+            </Badge>
+            {application.matchScore != null && <Badge tone="brand">{application.matchScore}% Match</Badge>}
+          </div>
         </div>
 
         <p className="mt-3 text-sm text-slate-500">
           {formatSalaryRange(application.job.salaryMin, application.job.salaryMax, application.job.salaryFrequency)}
         </p>
+        {application.matchExplanation && (
+          <p className="mt-1 text-sm text-slate-500">{application.matchExplanation}</p>
+        )}
 
         <form action={startConversationFromApplicationAction.bind(null, application.id)} className="mt-4">
           <Button type="submit" variant="secondary" size="sm">

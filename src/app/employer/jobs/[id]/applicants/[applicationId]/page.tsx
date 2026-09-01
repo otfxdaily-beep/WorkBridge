@@ -98,10 +98,16 @@ export default async function ApplicantDetailPage({
               </div>
             </div>
           </div>
-          <Badge tone={applicationStatusTone[application.status]} className="text-sm">
-            {titleCase(application.status)}
-          </Badge>
+          <div className="flex flex-col items-end gap-1.5">
+            <Badge tone={applicationStatusTone[application.status]} className="text-sm">
+              {titleCase(application.status)}
+            </Badge>
+            {application.matchScore != null && <Badge tone="brand">{application.matchScore}% Match</Badge>}
+          </div>
         </div>
+        {application.matchExplanation && (
+          <p className="mt-2 text-sm text-slate-500">{application.matchExplanation}</p>
+        )}
 
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-100 pt-4 text-sm text-slate-600">
           <span className="inline-flex items-center gap-1">

@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma, EmploymentType, WorkArrangement, ExperienceLevel } from "@/generated/prisma/client";
 import type { JobCardData } from "@/types";
 import { prisma } from "@/lib/prisma";
+import { calculateMatch, buildCandidateMatchInput, buildJobMatchInput, type CandidateMatchInput } from "@/lib/matching";
 
 export const JOBS_PAGE_SIZE = 9;
 
@@ -76,11 +77,63 @@ export function buildJobOrderBy(sort?: string): Prisma.JobOrderByWithRelationInp
       return [{ salaryMax: "desc" }, { createdAt: "desc" }];
     case "salary_low":
       return [{ salaryMin: "asc" }, { createdAt: "desc" }];
+    // "relevance" is handled by getJobsForSearch() when a job seeker profile is
+    // available (Stage 13 match scoring); this DB-level fallback only applies
+    // to logged-out visitors and other roles.
     case "newest":
-    case "relevance": // No full-text ranking yet; relevance falls back to newest until Stage 13 (Matching).
+    case "relevance":
     default:
       return [{ publishedAt: "desc" }, { createdAt: "desc" }];
   }
+}
+
+const RELEVANCE_CANDIDATE_POOL_CAP = 300;
+
+/**
+ * Fetches one page of search results. When sorting by relevance for a job
+ * seeker with a profile, this scores a bounded pool of matching jobs
+ * in-memory and paginates the sorted list, since match score isn't a column
+ * the database can order by. Every other sort stays a plain indexed query.
+ */
+export async function getJobsForSearch(
+  params: JobSearchParams,
+  page: number,
+  candidate: CandidateMatchInput | null
+) {
+  const where = buildJobWhere(params);
+  const useRelevanceMatching = candidate !== null && (!params.sort || params.sort === "relevance");
+
+  if (!useRelevanceMatching) {
+    const orderBy = buildJobOrderBy(params.sort);
+    const [jobs, total] = await Promise.all([
+      prisma.job.findMany({
+        where,
+        orderBy,
+        include: { company: true, location: true, skills: { include: { skill: true } } },
+        skip: (page - 1) * JOBS_PAGE_SIZE,
+        take: JOBS_PAGE_SIZE,
+      }),
+      prisma.job.count({ where }),
+    ]);
+    return { jobs: jobs.map((j) => ({ job: j, matchScore: null as number | null })), total };
+  }
+
+  const pool = await prisma.job.findMany({
+    where,
+    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    include: { company: true, location: true, skills: { include: { skill: true } } },
+    take: RELEVANCE_CANDIDATE_POOL_CAP,
+  });
+
+  const scored = pool
+    .map((job) => ({ job, matchScore: calculateMatch(candidate as CandidateMatchInput, buildJobMatchInput(job)).score }))
+    .sort((a, b) => b.matchScore - a.matchScore);
+
+  const total = scored.length;
+  const startIndex = (page - 1) * JOBS_PAGE_SIZE;
+  const jobs = scored.slice(startIndex, startIndex + JOBS_PAGE_SIZE);
+
+  return { jobs, total };
 }
 
 type JobWithRelations = Prisma.JobGetPayload<{
@@ -101,7 +154,7 @@ export async function getCompanyRating(companyId: string) {
   return { average: result._avg.rating, count: result._count };
 }
 
-export function toJobCardData(job: JobWithRelations): JobCardData {
+export function toJobCardData(job: JobWithRelations, matchScore: number | null = null): JobCardData {
   return {
     id: job.id,
     slug: job.slug,
@@ -115,7 +168,7 @@ export function toJobCardData(job: JobWithRelations): JobCardData {
     salaryMax: job.salaryMax,
     salaryFrequency: job.salaryFrequency,
     employmentType: job.employmentType,
-    matchScore: null,
+    matchScore,
     postedAt: (job.publishedAt ?? job.createdAt).toISOString(),
   };
 }

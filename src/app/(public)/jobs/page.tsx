@@ -4,7 +4,9 @@ import { JobCard } from "@/components/jobs/job-card";
 import { JobFilters } from "@/components/jobs/job-filters";
 import { Pagination } from "@/components/ui/pagination";
 import { prisma } from "@/lib/prisma";
-import { buildJobWhere, buildJobOrderBy, toJobCardData, JOBS_PAGE_SIZE, type JobSearchParams } from "@/lib/jobs";
+import { getJobsForSearch, toJobCardData, JOBS_PAGE_SIZE, type JobSearchParams } from "@/lib/jobs";
+import { buildCandidateMatchInput } from "@/lib/matching";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: "Jobs",
@@ -19,20 +21,17 @@ export default async function JobsPage({
   const params = await searchParams;
   const page = Math.max(1, Number(params.page) || 1);
 
-  const where = buildJobWhere(params);
-  const orderBy = buildJobOrderBy(params.sort);
+  const user = await getCurrentUser();
+  let candidate = null;
+  if (user?.role === "JOB_SEEKER") {
+    const profile = await prisma.jobSeekerProfile.findUnique({
+      where: { userId: user.id },
+      include: { skills: { include: { skill: true } }, location: true, preference: { include: { location: true } } },
+    });
+    if (profile) candidate = buildCandidateMatchInput(profile);
+  }
 
-  const [jobs, total] = await Promise.all([
-    prisma.job.findMany({
-      where,
-      orderBy,
-      include: { company: true, location: true },
-      skip: (page - 1) * JOBS_PAGE_SIZE,
-      take: JOBS_PAGE_SIZE,
-    }),
-    prisma.job.count({ where }),
-  ]);
-
+  const { jobs, total } = await getJobsForSearch(params, page, candidate);
   const totalPages = Math.max(1, Math.ceil(total / JOBS_PAGE_SIZE));
 
   const buildHref = (targetPage: number) => {
@@ -60,8 +59,8 @@ export default async function JobsPage({
         </p>
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {jobs.map((job) => (
-            <JobCard key={job.id} job={toJobCardData(job)} />
+          {jobs.map(({ job, matchScore }) => (
+            <JobCard key={job.id} job={toJobCardData(job, matchScore)} />
           ))}
         </div>
       )}
