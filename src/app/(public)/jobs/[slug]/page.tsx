@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Building2, MapPin, Star, Flag, MessageCircle } from "lucide-react";
+import { Building2, MapPin, Star, MessageCircle } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Card } from "@/components/ui/card";
 import { Badge, VerifiedBadge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { formatSalaryRange, formatRelativeDate, titleCase } from "@/lib/utils";
 import { SaveJobButton } from "./save-job-button";
 import { ApplyButton, CvRequiredNote } from "./apply-button";
+import { ReportJobButton } from "./report-job-button";
 import { startConversationFromApplicationAction } from "@/lib/messaging-actions";
 
 async function getJob(slug: string) {
@@ -141,10 +142,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
             </Button>
           )}
           <SaveJobButton jobId={job.id} slug={job.slug} isSaved={isSaved} />
-          <Button variant="ghost" className="w-full sm:w-auto" disabled title="Reporting opens in a later build stage">
-            <Flag className="size-4" />
-            Report Job
-          </Button>
+          <ReportJobButton jobId={job.id} isLoggedIn={Boolean(user)} />
         </div>
         {user?.role === "JOB_SEEKER" && !hasCv && !existingApplicationId && <CvRequiredNote />}
 

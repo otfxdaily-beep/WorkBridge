@@ -4,13 +4,20 @@ import { prisma } from "@/lib/prisma";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireRole("ADMIN");
-  const pendingVerifications = await prisma.verification.count({ where: { status: "PENDING" } });
+  const [pendingVerifications, openReports] = await Promise.all([
+    prisma.verification.count({ where: { status: "PENDING" } }),
+    prisma.report.count({ where: { status: "OPEN" } }),
+  ]);
 
   const navLinks = [
     { href: "/admin/dashboard", label: "Dashboard" },
     {
       href: "/admin/verifications",
       label: pendingVerifications > 0 ? `Verifications (${pendingVerifications})` : "Verifications",
+    },
+    {
+      href: "/admin/reports",
+      label: openReports > 0 ? `Reports (${openReports})` : "Reports",
     },
   ];
 

@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Admin Dashboard" };
 export default async function AdminDashboardPage() {
   await requireAdmin();
 
-  const [totalUsers, jobSeekers, employers, verifiedCompanies, pendingVerifications, activeJobs, applications] =
+  const [totalUsers, jobSeekers, employers, verifiedCompanies, pendingVerifications, activeJobs, applications, openReports] =
     await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { role: "JOB_SEEKER" } }),
@@ -19,6 +19,7 @@ export default async function AdminDashboardPage() {
       prisma.verification.count({ where: { status: "PENDING" } }),
       prisma.job.count({ where: { status: "PUBLISHED" } }),
       prisma.application.count(),
+      prisma.report.count({ where: { status: "OPEN" } }),
     ]);
 
   return (
@@ -66,6 +67,20 @@ export default async function AdminDashboardPage() {
           </div>
           <ButtonLink href="/admin/verifications" size="sm" className="shrink-0">
             Review verifications
+          </ButtonLink>
+        </div>
+      )}
+
+      {openReports > 0 && (
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-medium text-red-900">
+              {openReports} open report{openReports === 1 ? "" : "s"} awaiting review
+            </p>
+            <p className="text-sm text-red-700">Look into flagged jobs, users and messages.</p>
+          </div>
+          <ButtonLink href="/admin/reports" size="sm" className="shrink-0">
+            Review reports
           </ButtonLink>
         </div>
       )}

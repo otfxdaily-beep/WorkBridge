@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { calculateMatch, buildCandidateMatchInput, buildJobMatchInput } from "@/lib/matching";
 import { createNotification } from "@/lib/notifications";
+import { jobReportSchema } from "@/lib/validation/report";
+import type { ReportReason } from "@/generated/prisma/client";
 
 export async function toggleSaveJobAction(jobId: string, slug: string) {
   const user = await getCurrentUser();
@@ -72,4 +74,36 @@ export async function applyToJobAction(jobId: string, slug: string) {
   });
 
   redirect(`/dashboard/applications/${application.id}`);
+}
+
+export type ReportJobActionState = { error?: string; success?: string } | null;
+
+export async function reportJobAction(
+  jobId: string,
+  _prevState: ReportJobActionState,
+  formData: FormData
+): Promise<ReportJobActionState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const parsed = jobReportSchema.safeParse({
+    reason: formData.get("reason"),
+    description: formData.get("description"),
+  });
+  if (!parsed.success) return { error: "Choose a reason." };
+
+  const job = await prisma.job.findUnique({ where: { id: jobId } });
+  if (!job) return { error: "This job no longer exists." };
+
+  await prisma.report.create({
+    data: {
+      reporterId: user.id,
+      targetType: "JOB",
+      targetJobId: jobId,
+      reason: parsed.data.reason as ReportReason,
+      description: parsed.data.description || null,
+    },
+  });
+
+  return { success: "Report submitted. Our team will review it." };
 }
