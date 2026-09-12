@@ -13,6 +13,7 @@
     "db:studio": "prisma studio",
     "create-admin": "tsx scripts/create-admin.ts",
     "seed:categories": "tsx scripts/seed-categories.ts",
+    "seed": "tsx scripts/seed.ts",
     "backfill:match-scores": "tsx scripts/backfill-match-scores.ts"
   },
   "dependencies": {
