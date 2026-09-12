@@ -2,7 +2,7 @@ import "server-only";
 import type { Prisma, EmploymentType, WorkArrangement, ExperienceLevel } from "@/generated/prisma/client";
 import type { JobCardData } from "@/types";
 import { prisma } from "@/lib/prisma";
-import { calculateMatch, buildCandidateMatchInput, buildJobMatchInput, type CandidateMatchInput } from "@/lib/matching";
+import { calculateMatch, buildJobMatchInput, type CandidateMatchInput } from "@/lib/matching";
 
 export const JOBS_PAGE_SIZE = 9;
 

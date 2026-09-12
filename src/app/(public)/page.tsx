@@ -31,7 +31,7 @@ export default async function HomePage() {
     }),
   ]);
 
-  const featuredJobs = jobs.map(toJobCardData);
+  const featuredJobs = jobs.map((job) => toJobCardData(job));
   const featuredCompanies = companies.map((c) => ({
     id: c.id,
     name: c.name,
