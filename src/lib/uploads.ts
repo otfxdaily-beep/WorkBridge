@@ -2,6 +2,7 @@ import "server-only";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import { put } from "@vercel/blob";
 
 const UPLOAD_ROOT = path.join(process.cwd(), "public", "uploads");
 
@@ -48,13 +49,34 @@ export function validateFile(file: File, rule: FileRule): string | null {
   return null;
 }
 
-/** Saves under public/uploads/<subdir>/ and returns a URL the browser can load directly. */
+/**
+ * Saves an uploaded file and returns a URL the browser can load directly.
+ *
+ * Local disk (public/uploads/<subdir>/) only works on a single long-lived
+ * server with a persistent filesystem - fine for local dev, but serverless
+ * hosts like Vercel don't guarantee either. When BLOB_READ_WRITE_TOKEN is
+ * present (set automatically once a Vercel Blob store is connected to the
+ * project) we upload there instead; otherwise we fall back to local disk.
+ */
 export async function saveUploadedFile(file: File, subdir: string) {
-  const dir = path.join(UPLOAD_ROOT, subdir);
-  await mkdir(dir, { recursive: true });
-
   const ext = path.extname(file.name).toLowerCase();
   const filename = `${randomUUID()}${ext}`;
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(`${subdir}/${filename}`, file, {
+      access: "public",
+      contentType: file.type || undefined,
+    });
+    return {
+      url: blob.url,
+      originalName: file.name,
+      mimeType: file.type,
+      size: file.size,
+    };
+  }
+
+  const dir = path.join(UPLOAD_ROOT, subdir);
+  await mkdir(dir, { recursive: true });
   const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(path.join(dir, filename), buffer);
 

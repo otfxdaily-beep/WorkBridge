@@ -111,6 +111,32 @@ scripts/                   One-off/standalone CLI scripts (seeding, admin creati
 
 Job/candidate match scores are a plain, transparent, rule-based weighted calculation (skills 40% / experience 20% / location 15% / salary 10% / title 10% / employment type 5%) — **not AI**. It's deliberately isolated in `src/lib/matching.ts` behind one `calculateMatch()` function so the scoring can change (or be replaced with something AI-assisted later) without touching any call site.
 
+## Deployment
+
+The recommended stack is **Vercel** (hosting) + **Neon** (Postgres) + **Vercel Blob** (file uploads) — all have free tiers that are enough for an MVP. Local dev is unaffected either way: `DATABASE_URL` just points somewhere else, and file uploads only switch to Blob storage when `BLOB_READ_WRITE_TOKEN` is set (see `src/lib/uploads.ts`).
+
+1. **Push this repo to GitHub.** Create a new (private is fine) repository on GitHub, then from this folder:
+   ```bash
+   git remote add origin <your-repo-url>
+   git push -u origin master
+   ```
+2. **Create a Vercel account** (vercel.com — signing in with GitHub is easiest) and **Import Project**, pointing it at the GitHub repo. Vercel auto-detects Next.js; no build config changes are needed.
+3. **Create a Neon account** (neon.tech) and a new Postgres project. Copy the **pooled** connection string it gives you.
+4. **Add environment variables** in the Vercel project's Settings → Environment Variables:
+   - `DATABASE_URL` — the Neon pooled connection string
+   - `APP_URL` — your Vercel deployment URL (e.g. `https://your-app.vercel.app`)
+5. **Add Vercel Blob storage**: in the Vercel project's Storage tab, create a Blob store and connect it to the project — this automatically adds `BLOB_READ_WRITE_TOKEN` to your environment variables.
+6. **Push the schema to the production database.** From your machine, temporarily point `DATABASE_URL` at the Neon connection string (e.g. in a local `.env.production.local` you don't commit) and run:
+   ```bash
+   npm run db:push
+   npm run seed:categories
+   npm run create-admin -- you@example.com "a-strong-password"
+   ```
+   Running `npm run seed` too is optional — it's demo content, useful for showing the app to others but not required for a real launch.
+7. **Redeploy** (Vercel does this automatically on every push to the connected branch). Once deployed, log in with the admin account you created.
+
+After this initial setup, every `git push` to the connected branch redeploys automatically — no repeated manual steps.
+
 ## Testing
 
 `npm test` runs the Vitest suite — unit tests for the app's pure business logic (match scoring, WAT timezone conversion, formatters, validation schemas). It doesn't hit a database; every feature is also manually verified end-to-end in the browser as it's built.
