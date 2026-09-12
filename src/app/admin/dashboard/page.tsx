@@ -10,25 +10,34 @@ export const metadata: Metadata = { title: "Admin Dashboard" };
 export default async function AdminDashboardPage() {
   await requireAdmin();
 
-  const [totalUsers, jobSeekers, employers, verifiedCompanies, pendingVerifications, activeJobs, applications, openReports] =
-    await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({ where: { role: "JOB_SEEKER" } }),
-      prisma.user.count({ where: { role: "EMPLOYER" } }),
-      prisma.company.count({ where: { verificationStatus: "VERIFIED" } }),
-      prisma.verification.count({ where: { status: "PENDING" } }),
-      prisma.job.count({ where: { status: "PUBLISHED" } }),
-      prisma.application.count(),
-      prisma.report.count({ where: { status: "OPEN" } }),
-    ]);
+  const [
+    totalUsers,
+    jobSeekers,
+    employers,
+    verifiedCompanies,
+    pendingVerifications,
+    activeJobs,
+    applications,
+    openReports,
+    pendingJobs,
+    suspendedUsers,
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.user.count({ where: { role: "JOB_SEEKER" } }),
+    prisma.user.count({ where: { role: "EMPLOYER" } }),
+    prisma.company.count({ where: { verificationStatus: "VERIFIED" } }),
+    prisma.verification.count({ where: { status: "PENDING" } }),
+    prisma.job.count({ where: { status: "PUBLISHED" } }),
+    prisma.application.count(),
+    prisma.report.count({ where: { status: "OPEN" } }),
+    prisma.job.count({ where: { status: "PENDING_REVIEW" } }),
+    prisma.user.count({ where: { status: "SUSPENDED" } }),
+  ]);
 
   return (
     <Container className="py-10">
       <h1 className="text-2xl font-semibold text-slate-900">Admin dashboard</h1>
-      <p className="mt-2 max-w-lg text-slate-600">
-        Platform overview. User management, job moderation and report
-        handling will appear here as the remaining admin stages are built.
-      </p>
+      <p className="mt-2 max-w-lg text-slate-600">Platform overview, job moderation and report handling.</p>
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Card>
@@ -55,7 +64,25 @@ export default async function AdminDashboardPage() {
           <p className="text-2xl font-semibold text-slate-900">{applications}</p>
           <p className="text-sm text-slate-500">Applications</p>
         </Card>
+        <Card>
+          <p className="text-2xl font-semibold text-slate-900">{suspendedUsers}</p>
+          <p className="text-sm text-slate-500">Suspended users</p>
+        </Card>
       </div>
+
+      {pendingJobs > 0 && (
+        <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-medium text-amber-900">
+              {pendingJobs} job{pendingJobs === 1 ? "" : "s"} awaiting review
+            </p>
+            <p className="text-sm text-amber-700">Employers can&apos;t go live until you approve or reject each listing.</p>
+          </div>
+          <ButtonLink href="/admin/jobs" size="sm" className="shrink-0">
+            Review jobs
+          </ButtonLink>
+        </div>
+      )}
 
       {pendingVerifications > 0 && (
         <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center sm:justify-between">
