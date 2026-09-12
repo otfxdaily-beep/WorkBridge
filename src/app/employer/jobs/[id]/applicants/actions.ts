@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { requireCompany, requireOwnedJob } from "@/lib/employer-guards";
 import { scheduleInterviewSchema } from "@/lib/validation/interview";
 import { nigeriaDateTimeToUTC } from "@/lib/interviews";
-import type { ApplicationStatus } from "@/generated/prisma/client";
+import { createNotification } from "@/lib/notifications";
+import type { ApplicationStatus, NotificationType } from "@/generated/prisma/client";
 
 const STATUS_NOTES: Record<ApplicationStatus, string> = {
   APPLIED: "Applied.",
@@ -18,11 +19,31 @@ const STATUS_NOTES: Record<ApplicationStatus, string> = {
   WITHDRAWN: "Withdrawn by applicant.",
 };
 
+/** Statuses worth telling the candidate about, and how to phrase it. */
+const STATUS_NOTIFICATIONS: Partial<Record<ApplicationStatus, { type: NotificationType; title: (jobTitle: string) => string }>> = {
+  VIEWED: { type: "APPLICATION_VIEWED", title: (t) => `Your application for ${t} was viewed` },
+  SHORTLISTED: { type: "APPLICATION_SHORTLISTED", title: (t) => `You were shortlisted for ${t}` },
+  OFFER: { type: "OFFER_RECEIVED", title: (t) => `You received an offer for ${t}` },
+  HIRED: { type: "APPLICATION_HIRED", title: (t) => `You were hired for ${t}!` },
+  REJECTED: { type: "APPLICATION_REJECTED", title: (t) => `Update on your application for ${t}` },
+};
+
 async function requireOwnedApplication(jobId: string, applicationId: string) {
   await requireOwnedJob(jobId);
-  const application = await prisma.application.findUniqueOrThrow({ where: { id: applicationId } });
+  const application = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    include: { job: true, jobSeekerProfile: true },
+  });
   if (application.jobId !== jobId) throw new Error("Application does not belong to this job.");
   return application;
+}
+
+async function notifyCandidateOfStatus(application: { id: string; job: { title: string }; jobSeekerProfile: { userId: string } }, status: ApplicationStatus) {
+  const config = STATUS_NOTIFICATIONS[status];
+  if (!config) return;
+  await createNotification(application.jobSeekerProfile.userId, config.type, config.title(application.job.title), {
+    link: `/dashboard/applications/${application.id}`,
+  });
 }
 
 export async function markApplicationViewedAction(jobId: string, applicationId: string) {
@@ -33,17 +54,19 @@ export async function markApplicationViewedAction(jobId: string, applicationId: 
     where: { id: applicationId },
     data: { status: "VIEWED", statusEvents: { create: { status: "VIEWED", note: STATUS_NOTES.VIEWED } } },
   });
+  await notifyCandidateOfStatus(application, "VIEWED");
 
   revalidatePath(`/employer/jobs/${jobId}/applicants`);
 }
 
 export async function updateApplicationStatusAction(jobId: string, applicationId: string, status: ApplicationStatus) {
-  await requireOwnedApplication(jobId, applicationId);
+  const application = await requireOwnedApplication(jobId, applicationId);
 
   await prisma.application.update({
     where: { id: applicationId },
     data: { status, statusEvents: { create: { status, note: STATUS_NOTES[status] } } },
   });
+  await notifyCandidateOfStatus(application, status);
 
   revalidatePath(`/employer/jobs/${jobId}/applicants`);
   revalidatePath(`/employer/jobs/${jobId}/applicants/${applicationId}`);
@@ -58,7 +81,7 @@ export async function scheduleInterviewAction(
   formData: FormData
 ): Promise<InterviewActionState> {
   const { user } = await requireCompany();
-  await requireOwnedApplication(jobId, applicationId);
+  const application = await requireOwnedApplication(jobId, applicationId);
 
   const parsed = scheduleInterviewSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
@@ -81,7 +104,6 @@ export async function scheduleInterviewAction(
     },
   });
 
-  const application = await prisma.application.findUniqueOrThrow({ where: { id: applicationId } });
   if (application.status === "SHORTLISTED" || application.status === "APPLIED" || application.status === "VIEWED") {
     await prisma.application.update({
       where: { id: applicationId },
@@ -92,6 +114,13 @@ export async function scheduleInterviewAction(
     });
   }
 
+  await createNotification(
+    application.jobSeekerProfile.userId,
+    "INTERVIEW_SCHEDULED",
+    `Interview scheduled for ${application.job.title}`,
+    { link: `/dashboard/applications/${applicationId}` }
+  );
+
   revalidatePath(`/employer/jobs/${jobId}/applicants/${applicationId}`);
   revalidatePath(`/dashboard/applications/${applicationId}`);
   return null;
@@ -101,7 +130,7 @@ async function requireOwnedInterview(jobId: string, interviewId: string) {
   await requireOwnedJob(jobId);
   const interview = await prisma.interview.findUniqueOrThrow({
     where: { id: interviewId },
-    include: { application: true },
+    include: { application: { include: { job: true, jobSeekerProfile: true } } },
   });
   if (interview.application.jobId !== jobId) throw new Error("Interview does not belong to this job.");
   return interview;
@@ -136,6 +165,13 @@ export async function rescheduleInterviewAction(
       respondedAt: null,
     },
   });
+
+  await createNotification(
+    interview.application.jobSeekerProfile.userId,
+    "INTERVIEW_SCHEDULED",
+    `Interview time updated for ${interview.application.job.title}`,
+    { link: `/dashboard/applications/${interview.applicationId}` }
+  );
 
   revalidatePath(`/employer/jobs/${jobId}/applicants/${interview.applicationId}`);
   revalidatePath(`/dashboard/applications/${interview.applicationId}`);

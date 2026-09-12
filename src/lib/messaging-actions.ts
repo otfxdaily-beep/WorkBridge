@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { findOrCreateConversationForApplication } from "@/lib/messaging";
+import { createNotification } from "@/lib/notifications";
 import type { ReportReason, Conversation } from "@/generated/prisma/client";
 
 async function requireParticipant(conversationId: string) {
@@ -48,6 +49,12 @@ export async function sendMessageAction(
     prisma.message.create({ data: { conversationId, senderId: user.id, body } }),
     prisma.conversation.update({ where: { id: conversationId }, data: { lastMessageAt: new Date() } }),
   ]);
+
+  const recipientId = conversation.jobSeekerUserId === user.id ? conversation.employerUserId : conversation.jobSeekerUserId;
+  await createNotification(recipientId, "NEW_MESSAGE", "New message", {
+    body: body.length > 140 ? `${body.slice(0, 140)}...` : body,
+    link: `${basePathFor(recipientId, conversation)}/${conversationId}`,
+  });
 
   revalidatePath(`${basePathFor(user.id, conversation)}/${conversationId}`);
   return null;

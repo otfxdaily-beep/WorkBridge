@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { calculateMatch, buildCandidateMatchInput, buildJobMatchInput } from "@/lib/matching";
+import { createNotification } from "@/lib/notifications";
 
 export async function toggleSaveJobAction(jobId: string, slug: string) {
   const user = await getCurrentUser();
@@ -59,6 +60,15 @@ export async function applyToJobAction(jobId: string, slug: string) {
       matchExplanation: explanation,
       statusEvents: { create: { status: "APPLIED", note: "Application submitted." } },
     },
+  });
+
+  await createNotification(user.id, "APPLICATION_SUBMITTED", `You applied to ${job.title}`, {
+    body: `Your application to ${job.title} was submitted successfully.`,
+    link: `/dashboard/applications/${application.id}`,
+  });
+  await createNotification(job.postedById, "NEW_APPLICATION", `New applicant for ${job.title}`, {
+    body: `${profile.fullName} applied to ${job.title}.`,
+    link: `/employer/jobs/${job.id}/applicants/${application.id}`,
   });
 
   redirect(`/dashboard/applications/${application.id}`);

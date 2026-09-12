@@ -14,6 +14,7 @@ import { startConversationFromApplicationAction } from "@/lib/messaging-actions"
 import { updateApplicationStatusAction, scheduleInterviewAction } from "../actions";
 import { InterviewForm } from "@/components/interviews/interview-form";
 import { EmployerInterviewCard } from "@/components/interviews/employer-interview-card";
+import { createNotification } from "@/lib/notifications";
 
 export const metadata: Metadata = { title: "Candidate Profile" };
 
@@ -43,6 +44,7 @@ export default async function ApplicantDetailPage({
       },
       statusEvents: { orderBy: { createdAt: "asc" } },
       interviews: { orderBy: { scheduledAt: "desc" } },
+      job: { select: { title: true } },
     },
   });
 
@@ -56,6 +58,12 @@ export default async function ApplicantDetailPage({
     });
     application.status = updated.status;
     application.statusEvents = updated.statusEvents;
+    await createNotification(
+      application.jobSeekerProfile.userId,
+      "APPLICATION_VIEWED",
+      `Your application for ${application.job.title} was viewed`,
+      { link: `/dashboard/applications/${application.id}` }
+    );
   }
 
   const profile = application.jobSeekerProfile;

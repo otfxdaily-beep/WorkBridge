@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { interviewResponseSchema } from "@/lib/validation/interview";
+import { createNotification } from "@/lib/notifications";
 import type { InterviewStatus } from "@/generated/prisma/client";
 
 const TERMINAL_STATUSES = ["HIRED", "REJECTED", "WITHDRAWN"];
@@ -36,13 +37,19 @@ async function requireOwnedInterview(interviewId: string) {
 
   const interview = await prisma.interview.findUniqueOrThrow({
     where: { id: interviewId },
-    include: { application: true },
+    include: { application: { include: { job: true, jobSeekerProfile: true } } },
   });
   if (interview.application.jobSeekerProfileId !== profile.id) {
     throw new Error("Interview does not belong to this applicant.");
   }
   return interview;
 }
+
+const RESPONSE_LABEL: Record<string, string> = {
+  ACCEPTED: "accepted",
+  DECLINED: "declined",
+  RESCHEDULE_REQUESTED: "requested another time for",
+};
 
 export async function respondToInterviewAction(
   interviewId: string,
@@ -64,6 +71,13 @@ export async function respondToInterviewAction(
       respondedAt: new Date(),
     },
   });
+
+  await createNotification(
+    interview.scheduledById,
+    "INTERVIEW_RESPONSE",
+    `${interview.application.jobSeekerProfile.fullName} ${RESPONSE_LABEL[status] ?? "responded to"} the interview for ${interview.application.job.title}`,
+    { link: `/employer/jobs/${interview.application.jobId}/applicants/${interview.applicationId}` }
+  );
 
   revalidatePath(`/dashboard/applications/${interview.applicationId}`);
   revalidatePath(`/employer/jobs/${interview.application.jobId}/applicants/${interview.applicationId}`);
