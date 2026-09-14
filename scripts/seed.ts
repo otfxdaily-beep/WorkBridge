@@ -410,11 +410,29 @@ async function main() {
   const portHarcourt = await upsertLocation("Nigeria", "Rivers", "Port Harcourt");
   const kano = await upsertLocation("Nigeria", "Kano", "Kano");
 
-  console.log("Looking up existing companies...");
-  const northbridge = await prisma.company.findFirstOrThrow({ where: { name: "Northbridge Tech" } });
-  const asoRock = await prisma.company.findFirstOrThrow({ where: { name: "Aso Rock Logistics" } });
+  console.log("Seeding companies...");
+  // These two are the companies used in earlier hand-tested local dev data.
+  // find-or-create so this script also works standalone on a fresh database
+  // (e.g. a new production environment) where they don't exist yet.
+  const northbridge = await findOrCreateCompany({
+    name: "Northbridge Tech",
+    industry: "Technology",
+    locationId: abuja.id,
+    description: "A software company building tools for teams across Nigeria.",
+    employeeCount: "51-200",
+    yearEstablished: 2016,
+    verificationStatus: "VERIFIED",
+  });
+  const asoRock = await findOrCreateCompany({
+    name: "Aso Rock Logistics",
+    industry: "Logistics & Supply Chain",
+    locationId: abuja.id,
+    description: "A last-mile delivery and logistics company serving businesses across Abuja.",
+    employeeCount: "51-200",
+    yearEstablished: 2012,
+    verificationStatus: "VERIFIED",
+  });
 
-  console.log("Seeding new companies...");
   const lagosFintech = await findOrCreateCompany({
     name: "Lagos Fintech Hub",
     industry: "Financial Technology",
@@ -462,8 +480,6 @@ async function main() {
   });
 
   console.log("Seeding employer recruiters...");
-  const northbridgeRecruiter = await prisma.employerProfile.findFirstOrThrow({ where: { companyId: northbridge.id } });
-  const asoRockRecruiter = await prisma.employerProfile.findFirstOrThrow({ where: { companyId: asoRock.id } });
 
   async function seedRecruiter(email: string, fullName: string, jobTitle: string, companyId: string) {
     const user = await upsertUser(email, "EMPLOYER");
@@ -474,6 +490,31 @@ async function main() {
     });
     return { user, profile };
   }
+
+  async function findOrCreateRecruiterForCompany(
+    companyId: string,
+    email: string,
+    fullName: string,
+    jobTitle: string
+  ) {
+    const existing = await prisma.employerProfile.findFirst({ where: { companyId } });
+    if (existing) return existing;
+    const user = await upsertUser(email, "EMPLOYER");
+    return prisma.employerProfile.create({ data: { userId: user.id, fullName, jobTitle, companyId } });
+  }
+
+  const northbridgeRecruiter = await findOrCreateRecruiterForCompany(
+    northbridge.id,
+    "tunde.employer@example.com",
+    "Tunde Bakare",
+    "Talent Lead"
+  );
+  const asoRockRecruiter = await findOrCreateRecruiterForCompany(
+    asoRock.id,
+    "chidi.employer@example.com",
+    "Chidi Nwosu",
+    "HR Manager"
+  );
 
   const lagosFintechRecruiter = await seedRecruiter(
     "funke.adebayo@lagosfintechhub.example.com",
@@ -507,6 +548,47 @@ async function main() {
   );
 
   console.log("Seeding jobs...");
+  // These two match the jobs created by hand while testing earlier stages
+  // locally. upsertJob is idempotent by slug, so on local dev this finds
+  // and returns the existing rows unchanged; on a fresh database it creates
+  // them, so applications seeded against these slugs later always resolve.
+  await upsertJob({
+    title: "Frontend Developer",
+    company: northbridge,
+    postedById: northbridgeRecruiter.userId,
+    categoryId: (await categoryByName("IT & Software Development")).id,
+    locationId: abuja.id,
+    city: "Abuja",
+    description: "We are looking for a skilled Frontend Developer to join our growing tech team in Abuja. You will build and maintain user-facing features for our products.",
+    responsibilities: "Build responsive UIs; Collaborate with designers and backend engineers; Write clean, tested code.",
+    requirements: "2+ years experience with React; Strong CSS skills; Familiarity with TypeScript.",
+    salaryMin: 350000,
+    salaryMax: 500000,
+    employmentType: "FULL_TIME",
+    workArrangement: "HYBRID",
+    experienceLevel: "MID",
+    status: "PUBLISHED",
+    skillNames: ["React", "TypeScript"],
+  });
+  await upsertJob({
+    title: "Customer Success Manager",
+    company: northbridge,
+    postedById: northbridgeRecruiter.userId,
+    categoryId: (await categoryByName("Customer Service")).id,
+    locationId: abuja.id,
+    city: "Abuja",
+    description: "Own the post-sale relationship with our customers, helping them get the most out of our platform.",
+    responsibilities: "Onboard new customers; Run regular check-ins; Resolve escalations and gather product feedback.",
+    requirements: "2+ years in a customer-facing role; Excellent written and verbal communication.",
+    salaryMin: 250000,
+    salaryMax: 320000,
+    employmentType: "FULL_TIME",
+    workArrangement: "ON_SITE",
+    experienceLevel: "MID",
+    status: "PUBLISHED",
+    skillNames: ["Customer Service", "Communication"],
+  });
+
   const backendEngineer = await upsertJob({
     title: "Backend Engineer",
     company: northbridge,
